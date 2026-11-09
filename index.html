@@ -1,0 +1,1546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saw File Optimiser</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f4f5f6;--surface:#fff;--fg:#1c2227;--muted:#5a6670;--line:#d8dee3;--accent:#2c5a79;--accent-fg:#fff;--warn:#8a5300;--warn-bg:#fdf3e1;--ok:#2d6a4a;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--sans);padding:20px}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}
+h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.lede{color:var(--muted);margin:0}
+.bar{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:16px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.tabs{display:flex;gap:8px;margin:0 0 16px}
+.tab[hidden]{display:none}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px;align-items:start}
+@media(max-width:800px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0;margin-bottom:16px}
+.stack{display:flex;flex-direction:column;min-width:0}
+textarea,input[type=text],input[type=number]{font:13px var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;width:100%}
+textarea{min-height:140px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grid3{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:end}
+label{font-weight:500;display:block;margin:6px 0 4px}
+.hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+button{font:inherit;font-weight:500;color:var(--accent-fg);background:var(--accent);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button.danger{background:#a32d2d}
+table{width:100%;border-collapse:collapse;font:12.5px var(--mono)}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase}
+.wrap{overflow:auto;max-height:460px;border:1px solid var(--line);border-radius:6px}
+tr.flag td{color:var(--warn);background:var(--warn-bg)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.stat{border:1px solid var(--line);border-radius:6px;padding:10px}
+.stat .n{font-size:20px;font-weight:600}
+.stat .l{color:var(--muted);font-size:12px}
+.stat.warn{background:var(--warn-bg);border-color:transparent}
+.notice{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:10px 12px;margin:0 0 10px;font-size:13px}
+.notice ul{margin:6px 0 0;padding-left:18px;font-family:var(--mono)}
+.status{color:var(--ok);font-size:13px;min-height:1.2em;margin-top:8px}
+.checks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}
+.checks label{font-weight:400;margin:0;display:flex;gap:6px;align-items:center}
+.plan{border-left:4px solid var(--accent);background:var(--bg);padding:10px 12px;border-radius:6px;margin-bottom:12px}
+.vis{position:relative;height:28px;background:var(--line);border-radius:4px;margin:8px 0;overflow:hidden}
+.seg{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.85;color:#fff;font-size:10px;overflow:hidden;white-space:nowrap;padding:0 3px;line-height:28px}
+.seg.rest{background:var(--ok)}
+.seg.waste{background:#b5651d}
+.item{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:6px 0}
+.item:last-child{border-bottom:0}
+.stockgroup{border-bottom:1px solid var(--line)}
+.stockgroup summary{cursor:pointer;font-weight:500;padding:8px 0}
+.stockgroup[open] summary{color:var(--accent)}
+.typegroup{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-bottom:6px}
+.typehead{font-weight:600;margin-bottom:4px}
+.typehead label{display:inline-flex;gap:6px;align-items:center}
+.typeframes{display:flex;flex-wrap:wrap;gap:4px 12px}
+.foot{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+#printArea{display:none}
+@media print{
+ body>*:not(#printArea){display:none!important}
+ #printArea{display:block!important;color:#000;background:#fff}
+ #printArea h2{font-size:14pt;text-transform:none;color:#000;margin:0 0 8px}
+ #printArea table{font-size:7.5pt;width:100%;table-layout:fixed}
+ #printArea th,#printArea td{white-space:normal;overflow-wrap:anywhere;border:1px solid #999;padding:2px 3px}
+ #printArea th{background:#2c5a79!important;color:#fff!important}
+ #printArea tr.flag td{background:#fdf3e1!important;color:#000!important}
+ @page{size:A4 portrait;margin:10mm}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Saw File Optimiser</h1>
+  <p class="lede">One material list feeds both the splice sorter and the cut optimiser.</p>
+</header>
+
+<section class="bar">
+  <div style="flex:1;min-width:260px">
+    <label for="materialFile" style="margin-top:0">Material list CSV</label>
+    <input type="file" id="materialFile" accept=".csv,text/csv">
+  </div>
+  <div class="hint" id="materialInfo" style="margin:0">No material list loaded.</div>
+  <button class="danger" id="resetAll" type="button">Reset for next job</button>
+</section>
+
+<nav class="tabs">
+  <button class="tab-btn" data-tab="sorter" type="button">Splice sorter</button>
+  <button class="tab-btn ghost" data-tab="optimiser" type="button">Cut optimiser</button>
+  <button class="tab-btn ghost" data-tab="settings" type="button">Settings</button>
+</nav>
+
+<!-- SPLICE SORTER -->
+<div class="tab" id="sorter">
+  <div class="grid">
+    <div class="stack">
+      <section class="panel">
+        <h2>1. Build order</h2>
+        <textarea id="order" spellcheck="false"></textarea>
+        <input type="file" id="orderFile" accept=".txt,.csv,text/plain" style="margin-top:8px">
+        <p class="hint">Panel references in build order, one per line. Text after a space or tab is ignored.</p>
+      </section>
+      <section class="panel">
+        <h2>2. Splice list</h2>
+        <textarea id="splice" spellcheck="false"></textarea>
+        <div class="row" style="margin-top:8px">
+          <input type="file" id="spliceFile" accept=".csv,text/csv">
+          <button class="ghost" id="resetSplice" type="button">Reset example</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>3. Frame widths</h2>
+        <div id="widths"></div>
+      </section>
+    </div>
+    <div class="stack">
+      <section class="panel">
+        <h2>4. Result</h2>
+        <div class="stats" id="sumStats"></div>
+        <div id="notices"></div>
+        <div id="preview"></div>
+      </section>
+      <section class="panel">
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <h2 style="margin:0">Export</h2>
+          <div class="row">
+            <button id="copy" type="button">Copy for Excel</button>
+            <button id="dlXlsx" type="button">Download Excel</button>
+            <button id="printPdf" type="button">Print / PDF</button>
+          </div>
+        </div>
+        <div class="status" id="sorterStatus" role="status"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- CUT OPTIMISER -->
+<div class="tab" id="optimiser" hidden>
+  <div class="grid">
+    <div class="stack">
+      <section class="panel">
+        <h2>1. Stock</h2>
+        <div class="grid3">
+          <div><label>Length (mm)</label><input type="number" id="stLen" min="1" step="10" value="3000"></div>
+          <div><label>Width (mm)</label><input type="number" id="stW" min="1" value="140"></div>
+          <div><label>Height (mm)</label><input type="number" id="stH" min="1" value="38"></div>
+        </div>
+        <label>Grade</label>
+        <input type="text" id="stGrade" value="C16CLS">
+        <div class="row" style="margin-top:8px">
+          <button id="addStock" type="button">Add stock</button>
+          <input type="file" id="stockFile" accept=".csv,text/csv">
+        </div>
+        <p class="hint">Stock CSV columns: Length, Width, Height, Quality (or Grade). Stock is treated as unlimited.</p>
+        <div id="stockList" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:8px"><button class="danger" id="clearStock" type="button">Clear stock</button><button class="ghost" id="resetStock" type="button">Reset stock to default</button></div>
+      </section>
+      <section class="panel">
+        <h2>2. Pre-cut (not optimised)</h2>
+        <p class="hint">Components matching one of these are excluded from cutting. Starts with the standard list (2253 and 2276 mm, 89/115/140 × 38). Remove any you do not want.</p>
+        <div class="grid3" style="margin-top:8px">
+          <div><label>Length</label><input type="number" id="pcLen" min="1"></div>
+          <div><label>Width</label><input type="number" id="pcW" min="1" value="140"></div>
+          <div><label>Height</label><input type="number" id="pcH" min="1" value="38"></div>
+          <div style="align-self:end"><button id="addPrecut" type="button">Add</button></div>
+        </div>
+        <div id="precutList" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:8px"><button class="ghost" id="resetPrecut" type="button">Reset pre-cut to defaults</button></div>
+      </section>
+    </div>
+    <div class="stack">
+      <section class="panel">
+        <h2>3. Components from material list</h2>
+        <label>Frames</label>
+        <div class="row" style="margin:4px 0 6px">
+          <label style="font-weight:400;margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" id="incManual"> Include manual panels (EX8XX, FC8XX)</label>
+          <button class="ghost" id="frameAll" type="button">All</button>
+          <button class="ghost" id="frameNone" type="button">None</button>
+        </div>
+        <div id="prefixChecks" class="checks" style="margin-bottom:6px"></div>
+        <div id="frameChecks" class="checks"><span class="hint">Load a material list first.</span></div>
+        <label>Material types</label>
+        <div id="matChecks" class="checks"></div>
+        <div class="checks" style="margin-top:8px">
+          <label><input type="checkbox" id="incRails"> Include Top and Bottom Rails</label>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button id="importComps" type="button">Import selected</button>
+          <button class="ghost" id="clearComps" type="button">Clear</button>
+          <span class="hint" id="importInfo"></span>
+        </div>
+        <div id="compList" style="margin-top:10px"></div>
+      </section>
+      <section class="panel">
+        <h2>4. Optimise</h2>
+        <div class="grid3">
+          <div><label>Rest threshold (mm)</label><input type="number" id="restT" step="10" min="0" value="1000"></div>
+          <div style="grid-column:span 2"><label>Job name</label><input type="text" id="jobName" value="CutJob"></div>
+        </div>
+        <p class="hint">The job name fills in from the splice list title when one is loaded.</p>
+        <div class="checks" style="margin-top:8px"><label><input type="checkbox" id="ignoreGrade" checked> Ignore grade when optimising</label></div>
+        <div class="row" style="margin-top:10px"><button id="optimise" type="button">Optimise cutting plan</button></div>
+        <div class="status" id="optStatus" role="status"></div>
+      </section>
+      <section class="panel">
+        <h2>Save outputs to a folder</h2>
+        <div class="row">
+          <button class="ghost" id="pickFolder" type="button">Choose folder</button>
+          <span class="hint" id="folderName">No folder chosen. Outputs will download to Downloads.</span>
+        </div>
+        <div class="checks" style="margin-top:10px">
+          <label><input type="checkbox" id="outSplice" checked> Splice list (Excel)</label>
+          <label><input type="checkbox" id="outCutList" checked> Cut list</label>
+          <label><input type="checkbox" id="outPick"> Pick list</label>
+          <label><input type="checkbox" id="outFiles"> Cut files (one per cut)</label>
+        </div>
+        <div class="row" style="margin-top:10px"><button id="saveSelected" type="button">Save selected outputs</button></div>
+      </section>
+      <section class="panel" id="resultsPanel" hidden>
+        <h2>5. Results</h2>
+        <div class="row" style="margin-bottom:10px">
+          <button class="ghost" id="dlCutList" type="button">Cut list</button>
+          <button class="ghost" id="dlPickList" type="button">Pick list</button>
+          <button class="ghost" id="dlCutFiles" type="button">Cut files (JSON)</button>
+        </div>
+        <div id="results"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="tab" id="settings" hidden>
+  <section class="panel" style="max-width:720px">
+    <h2>Settings</h2>
+    <div style="max-width:220px"><label>Blade width (mm)</label><input type="number" id="kerf" step="0.5" min="0" value="3"></div>
+    <div style="max-width:320px;margin-top:14px"><label>Cut and pick list format</label><select id="listFormat"><option value="pdf">PDF</option><option value="xlsx">Excel (.xlsx)</option></select></div>
+    <p class="hint">Blade width and list format are saved in this browser. Job name is not saved, because it follows each splice list.</p>
+    <div class="row" style="margin-top:14px"><button class="ghost" id="debugReport" type="button">Download debug file</button></div>
+    <div class="status" id="settingsStatus" role="status"></div>
+  </section>
+</div>
+
+<footer class="foot" id="siteNote">Saw File Optimiser. Your files stay in this browser and are not sent anywhere.</footer>
+<p class="foot" id="credit">Made by Mark Thompson Conformance Controller 2026</p>
+<div id="printArea"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const num = (v, d) => { const n = parseFloat(v); return isNaN(n) ? (d || 0) : n; };
+  const qn = (s) => String(s || "").trim().toUpperCase();
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } }
+  };
+  const download = (name, data, type) => {
+    const url = URL.createObjectURL(new Blob([data], { type }));
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((x) => x.classList.toggle("ghost", x !== b));
+    document.querySelectorAll(".tab").forEach((p) => { p.hidden = p.id !== b.dataset.tab; });
+  }));
+
+  // ---------- Parsing ----------
+  // Panel codes: "EX-22EX-24" -> EX22, EX24; "EX8/EX1/EX2/EX10" -> EX8, EX1, EX2, EX10
+  function panelCodes(s) {
+    const re = /([A-Za-z]+)\s*-?\s*(\d+)/g;
+    const out = [];
+    let m;
+    while ((m = re.exec(s || "")) !== null) out.push(m[1].toUpperCase() + parseInt(m[2], 10));
+    return out;
+  }
+
+  function parseOrder(text) {
+    const seen = new Set(), codes = [];
+    text.split(/\r?\n/).forEach((line) => {
+      const first = line.trim().split(/\s+/)[0] || "";
+      panelCodes(first).forEach((c) => { if (!seen.has(c)) { seen.add(c); codes.push(c); } });
+    });
+    return codes;
+  }
+
+  // Quote-aware CSV line splitter, used for every CSV in this tool.
+  function parseCsvLine(line) {
+    const out = [];
+    let cur = "", quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; } else { quoted = false; }
+        } else { cur += ch; }
+      } else if (ch === '"') {
+        quoted = true;
+      } else if (ch === ",") {
+        out.push(cur.trim()); cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  function parseSplice(text) {
+    const lines = text.split(/\r?\n/);
+    const headerIdx = lines.findIndex((l) => (parseCsvLine(l)[0] || "").toLowerCase().startsWith("frame"));
+    if (headerIdx < 0) return { error: "Could not find the 'Frame / CDT Reference' header row." };
+    return {
+      title: lines.slice(0, headerIdx).map(parseCsvLine).filter((c) => c.some((x) => x !== "")),
+      header: parseCsvLine(lines[headerIdx]),
+      rows: lines.slice(headerIdx + 1).map(parseCsvLine).filter((c) => c.some((x) => x !== ""))
+    };
+  }
+
+  // Material list rows as objects keyed by the header row (the row whose first cell is "Role").
+  function parseMaterialRows(text) {
+    const lines = (text || "").split(/\r?\n/);
+    let header = null;
+    const rows = [];
+    for (const line of lines) {
+      const cells = parseCsvLine(line);
+      if (!cells.some((c) => c)) continue;
+      if (!header) { if (cells[0] === "Role") header = cells; continue; }
+      // Skip repeated header rows that appear inside the file.
+      if (cells.includes("Frame Ref") || cells[0] === "Role") continue;
+      const obj = {};
+      header.forEach((h, i) => { obj[h] = cells[i] == null ? "" : cells[i]; });
+      rows.push(obj);
+    }
+    return rows;
+  }
+
+  const frameOf = (ref) => (String(ref || "").match(/^[A-Z]+/) || [""])[0];
+  const isRail = (role) => /(Top|Bottom) Rail$/.test(role || "");
+
+  // ---------- Material list (shared) ----------
+  let materialText = "";
+  let materialRows = [];
+
+  $("materialFile").addEventListener("change", function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      materialText = String(reader.result);
+      materialRows = parseMaterialRows(materialText);
+      dlog("Material list loaded: " + file.name + ", " + materialRows.length + " rows");
+      $("materialInfo").textContent = materialRows.length + " rows loaded from " + file.name;
+      renderSorterWidths();
+      renderOptFilters();
+      runSorter();
+    };
+    reader.onerror = () => { $("materialInfo").textContent = "Could not read that file."; };
+    reader.readAsText(file);
+  });
+
+  // ---------- Splice sorter ----------
+  const EXAMPLE_ORDER = "PY-5\nFC-5\nFC-2\nIL-1\nPY-2\nFC-1";
+  const EXAMPLE_SPLICE = [
+    "EM-BHVA-067 Rail Splicing List (240281/067),,,,,",
+    "Frame / CDT Reference,Rail Type,Overall Length,Delivery Zone,Position 1,Position 2",
+    "FC-2,Top Rail,7862,0,4481,3381",
+    "FC-2,Bottom Rail,7862,0,4481,3381",
+    "FC-5,Top Rail,7862,0,4500,3362",
+    "FC-5,Bottom Rail,7862,0,4500,3362",
+    "PY-5,Top Rail,5000,0,4800,200",
+    "PY-5,Bottom Rail,5000,0,4800,200",
+    "      ,      ,      ,      , , ",
+    "FC-1,Top Rail,4765,0,N/A, ",
+    "FC-1,Bottom Rail,4765,0,N/A, ",
+    "IL-1,Top Rail,2233,0,N/A, ",
+    "IL-1,Bottom Rail,2233,0,N/A, "
+  ].join("\n");
+
+  let lastAoa = [];
+  let lastCsv = "";
+  let widthMap = new Map();
+
+  function listTitle() {
+    const t = lastAoa.length && lastAoa[0].length ? String(lastAoa[0][0]) : "Rail Splice List";
+    return t.replace(/[\\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  }
+
+  // Width (mm) per frame, from the Top and Bottom Rail rows of the material list.
+  function buildWidthMap() {
+    widthMap = new Map();
+    materialRows.forEach((r) => {
+      if (!isRail(r.Role)) return;
+      const codes = panelCodes(r["Frame Ref"]);
+      if (codes.length && !widthMap.has(codes[0])) widthMap.set(codes[0], r.Width || "");
+    });
+  }
+
+  function frameWidthFor(cells) {
+    for (const code of panelCodes(cells[0])) {
+      if (widthMap.has(code)) return widthMap.get(code);
+    }
+    return "";
+  }
+
+  function renderSorterWidths() {
+    const el = $("widths");
+    if (!materialRows.length) { el.innerHTML = '<p class="hint">Load a material list above to see frame widths.</p>'; return; }
+    const rank = new Map(parseOrder($("order").value).map((c, i) => [c, i]));
+    const byFrame = new Map();
+    materialRows.forEach((r) => {
+      if (!isRail(r.Role)) return;
+      const code = panelCodes(r["Frame Ref"])[0];
+      if (!code) return;
+      if (!byFrame.has(code)) byFrame.set(code, []);
+      byFrame.get(code).push({ role: r.Role, width: r.Width || "" });
+    });
+    const frames = [...byFrame.keys()].sort((a, b) =>
+      (rank.has(a) ? rank.get(a) : 1e9) - (rank.has(b) ? rank.get(b) : 1e9));
+    if (!frames.length) { el.innerHTML = '<div class="notice">No Top or Bottom Rail rows found in the material list.</div>'; return; }
+    let mismatch = 0;
+    const body = frames.map((code) => {
+      const rails = byFrame.get(code);
+      const differs = new Set(rails.map((r) => r.width)).size > 1;
+      if (differs) mismatch++;
+      return rails.map((r) => `<tr class="${differs ? "flag" : ""}"><td>${esc(code)}</td><td>${esc(r.role)}</td><td>${esc(r.width)} mm</td></tr>`).join("");
+    }).join("");
+    el.innerHTML = `<div class="wrap"><table><thead><tr><th>Frame</th><th>Rail</th><th>Width</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="hint">${frames.length} frames.${mismatch ? " Highlighted frames have top and bottom widths that differ." : ""}</p>`;
+  }
+
+  function runSorter() {
+    store.set("saw-order", $("order").value);
+    store.set("saw-splice", $("splice").value);
+    buildWidthMap();
+    const sum = $("sumStats"), notices = $("notices"), preview = $("preview");
+
+    if (!$("splice").value.trim()) {
+      sum.innerHTML = ""; notices.innerHTML = "";
+      preview.innerHTML = '<p class="hint">Paste or load a splice list to begin.</p>';
+      lastAoa = []; lastCsv = "";
+      return;
+    }
+    const parsed = parseSplice($("splice").value);
+    if (parsed.error) {
+      sum.innerHTML = ""; preview.innerHTML = "";
+      notices.innerHTML = `<div class="notice">${esc(parsed.error)}</div>`;
+      lastAoa = []; lastCsv = "";
+      return;
+    }
+
+    const order = parseOrder($("order").value);
+    const rank = new Map(order.map((code, i) => [code, i]));
+    const matched = [], unmatched = [], spliceCodes = new Set();
+    parsed.rows.forEach((cells, i) => {
+      const codes = panelCodes(cells[0]);
+      codes.forEach((c) => spliceCodes.add(c));
+      const known = codes.filter((c) => rank.has(c)).map((c) => rank.get(c));
+      if (known.length) {
+        const rail = (cells[1] || "").toLowerCase();
+        matched.push({ cells, rank: Math.min(...known), rail: rail.includes("top") ? 0 : 1, i });
+      } else {
+        unmatched.push(cells);
+      }
+    });
+    matched.sort((a, b) => a.rank - b.rank || a.rail - b.rail || a.i - b.i);
+
+    // Job name follows the splice list title, e.g. "EM-BHVA-067 Rail Splicing List ..." -> "EM-BHVA-067".
+    const titleFirst = parsed.title.length && parsed.title[0].length ? String(parsed.title[0][0]).trim().split(/\s+/)[0] : "";
+    if (titleFirst) $("jobName").value = titleFirst;
+
+    const missing = order.filter((c) => !spliceCodes.has(c));
+    const extra = [...spliceCodes].filter((c) => !rank.has(c));
+    lastSplice = { title: parsed.title.length ? parsed.title[0][0] : "", rows: parsed.rows.length, matched: matched.length, unmatched: unmatched.length, missingFromSplice: missing, extraInSplice: extra };
+    const head = [...parsed.header, "Frame Width (mm)"];
+    const rowsOut = [
+      ...matched.map((m) => [...m.cells, frameWidthFor(m.cells)]),
+      ...unmatched.map((c) => [...c, frameWidthFor(c)])
+    ];
+
+    lastCsv = [...parsed.title.map((c) => c.join(",")), head.join(","), ...rowsOut.map((r) => r.join(","))].join("\n");
+    const toCell = (v) => {
+      const t = String(v == null ? "" : v).trim();
+      if (t === "") return "";
+      return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : t;
+    };
+    lastAoa = [
+      ...parsed.title.map((c) => [c[0]]).filter((r) => r[0]),
+      [],
+      head,
+      ...rowsOut
+    ].map((row) => row.map(toCell));
+
+    sum.innerHTML = `
+      <div class="stat"><div class="n">${matched.length}</div><div class="l">in build order</div></div>
+      <div class="stat ${unmatched.length ? "warn" : ""}"><div class="n">${unmatched.length}</div><div class="l">not in order (at end)</div></div>
+      <div class="stat ${missing.length ? "warn" : ""}"><div class="n">${missing.length}</div><div class="l">panels with no splice</div></div>`;
+
+    let nh = "";
+    if (unmatched.length) nh += `<div class="notice">Not in the build order, so placed at the end. Check them.<ul>${unmatched.map((c) => `<li>${esc(c.slice(0, 2).join(" · "))}</li>`).join("")}</ul></div>`;
+    if (extra.length) nh += `<div class="notice">In the splice list but not in the build order:<ul>${extra.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
+    if (missing.length) nh += `<div class="notice">In the build order but not in the splice list:<ul>${missing.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
+    notices.innerHTML = nh;
+
+    const th = `<tr><th>#</th>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>`;
+    const body = rowsOut.map((r, n) => {
+      const isExtra = n >= matched.length;
+      return `<tr class="${isExtra ? "flag" : ""}"><td>${isExtra ? "!" : n + 1}</td>${r.map((x) => `<td>${esc(String(x == null ? "" : x).trim())}</td>`).join("")}</tr>`;
+    }).join("");
+    preview.innerHTML = `<div class="wrap"><table><thead>${th}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  $("order").value = store.get("saw-order") ?? EXAMPLE_ORDER;
+  $("splice").value = store.get("saw-splice") ?? EXAMPLE_SPLICE;
+  $("order").addEventListener("input", () => { runSorter(); renderSorterWidths(); });
+  $("splice").addEventListener("input", runSorter);
+  $("resetSplice").addEventListener("click", () => {
+    $("order").value = EXAMPLE_ORDER;
+    $("splice").value = EXAMPLE_SPLICE;
+    runSorter();
+    renderSorterWidths();
+    $("sorterStatus").textContent = "Reset to the example build order and splice list.";
+  });
+
+  function readInto(input, target) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { target.value = String(reader.result); runSorter(); renderSorterWidths(); };
+    reader.readAsText(file);
+  }
+  $("orderFile").addEventListener("change", function () { readInto(this, $("order")); });
+  $("spliceFile").addEventListener("change", function () { readInto(this, $("splice")); });
+
+  $("copy").addEventListener("click", () => {
+    const status = $("sorterStatus");
+    if (!lastCsv) { status.textContent = "Nothing to copy yet."; return; }
+    if (!(navigator.clipboard && navigator.clipboard.writeText)) { status.textContent = "Copy is not available here. Use Download Excel."; return; }
+    navigator.clipboard.writeText(lastCsv.replace(/,/g, "\t"))
+      .then(() => { status.textContent = "Copied."; })
+      .catch(() => { status.textContent = "Copy failed. Use Download Excel."; });
+  });
+
+  $("dlXlsx").addEventListener("click", () => {
+    const status = $("sorterStatus");
+    if (!lastAoa.length) { status.textContent = "Nothing to download yet."; return; }
+    if (typeof XLSX === "undefined") { status.textContent = "The Excel library did not load. Check your internet connection."; return; }
+    const ws = XLSX.utils.aoa_to_sheet(lastAoa);
+    const longest = [];
+    lastAoa.filter((row) => row.length > 1).forEach((row) => {
+      row.forEach((v, j) => { longest[j] = Math.max(longest[j] || 0, String(v).length); });
+    });
+    ws["!cols"] = longest.map((n) => ({ wch: Math.min(Math.max(n + 2, 8), 40) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Splice List");
+    XLSX.writeFile(wb, listTitle() + ".xlsx");
+    status.textContent = "Excel file downloaded.";
+  });
+
+  $("printPdf").addEventListener("click", () => {
+    const table = $("preview").querySelector("table");
+    if (!table) { $("sorterStatus").textContent = "Nothing to print yet."; return; }
+    const title = lastAoa.length && lastAoa[0].length ? String(lastAoa[0][0]) : "Rail Splice List";
+    $("printArea").innerHTML = `<h2>${esc(title)}</h2>` + table.outerHTML;
+    const previous = document.title;
+    document.title = listTitle();
+    window.print();
+    document.title = previous;
+  });
+
+  // ---------- Cut optimiser ----------
+  let stock = [];      // { length, width, height, quality, quantity }
+  let precut = [];     // { length, width, height }
+  let components = []; // { name, role, frameRef, length, width, height, quantity, quality }
+  let lastPlan = null;
+
+  function saveStockPrecut() {
+    store.set("saw-stock", JSON.stringify(stock));
+    store.set("saw-precut", JSON.stringify(precut));
+  }
+
+  // Default stock, loaded when the tool is first opened (or after "Reset stock to default").
+  const DEFAULT_STOCK_RAW = [
+    { length: 12000, width: 45, height: 195, quality: "GLULAM GL30C", quantity: 200 },
+    { length: 12000, width: 45, height: 220, quality: "GLULAM GL30C", quantity: 200 },
+    { length: 12000, width: 45, height: 235, quality: "GLULAM GL30C", quantity: 200 },
+    { length: 4800, width: 235, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 194, height: 44, quality: "C24", quantity: 200 },
+    { length: 4800, width: 184, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 172, height: 47, quality: "TR26", quantity: 200 },
+    { length: 4800, width: 150, height: 25, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 145, height: 44, quality: "C24", quantity: 200 },
+    { length: 4800, width: 70, height: 45, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 50, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 38, height: 25, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 140, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 89, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 63, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 2400, width: 140, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 2400, width: 89, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 2400, width: 63, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 2400, width: 63, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 4800, width: 115, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 2400, width: 115, height: 38, quality: "C16CLS", quantity: 200 },
+    { length: 3000, width: 45, height: 195, quality: "GLULAM GL30C", quantity: 200 },
+    { length: 4800, width: 184, height: 38, quality: "C24CLS", quantity: 200 }
+  ];
+  // Quantity null = unlimited. Lengths are no longer counted.
+  const DEFAULT_STOCK = DEFAULT_STOCK_RAW.map((s) => ({ ...s, quantity: null }));
+  try {
+    const saved = store.get("saw-stock");
+    stock = saved === null ? DEFAULT_STOCK.map((s) => ({ ...s })) : (JSON.parse(saved) || []);
+  } catch (e) { stock = DEFAULT_STOCK.map((s) => ({ ...s })); }
+  const PRECUT_DEFAULTS = [
+    { length: 2276, width: 89, height: 38 }, { length: 2276, width: 115, height: 38 }, { length: 2276, width: 140, height: 38 },
+    { length: 2253, width: 89, height: 38 }, { length: 2253, width: 115, height: 38 }, { length: 2253, width: 140, height: 38 }
+  ];
+  try { precut = JSON.parse(store.get("saw-precut") || "null") || PRECUT_DEFAULTS.slice(); } catch (e) { precut = PRECUT_DEFAULTS.slice(); }
+
+  // Grouped by cross-section, widest first. Click a cross-section to show its lengths.
+  function renderStock() {
+    if (!stock.length) { $("stockList").innerHTML = '<p class="hint">No stock added yet.</p>'; return; }
+    const groups = new Map();
+    stock.forEach((s, i) => {
+      const key = `${s.width}x${s.height}`;
+      if (!groups.has(key)) groups.set(key, { width: s.width, height: s.height, items: [] });
+      groups.get(key).items.push({ s, i });
+    });
+    const sorted = [...groups.values()].sort((a, b) => b.width - a.width || b.height - a.height);
+    $("stockList").innerHTML = sorted.map((g) => {
+      g.items.sort((a, b) => b.s.length - a.s.length);
+      const rows = g.items.map(({ s, i }) =>
+        `<div class="item"><span>${s.length} mm · ${esc(s.quality)} · ${s.quantity == null ? "unlimited" : "qty " + s.quantity}</span><button class="danger" data-rm="${i}" type="button">Remove</button></div>`
+      ).join("");
+      return `<details class="stockgroup"><summary>${g.width} × ${g.height} mm <span class="hint" style="margin:0">· ${g.items.length} length${g.items.length === 1 ? "" : "s"}</span></summary><div style="padding:4px 0 8px 12px">${rows}</div></details>`;
+    }).join("");
+  }
+
+  // Grouped by cross-section, widest first, the same as the stock list. Click a cross-section to show its lengths.
+  function renderPrecut() {
+    if (!precut.length) { $("precutList").innerHTML = '<p class="hint">No pre-cut sizes added.</p>'; return; }
+    const groups = new Map();
+    precut.forEach((p, i) => {
+      const key = `${p.width}x${p.height}`;
+      if (!groups.has(key)) groups.set(key, { width: p.width, height: p.height, items: [] });
+      groups.get(key).items.push({ p, i });
+    });
+    const sorted = [...groups.values()].sort((a, b) => b.width - a.width || b.height - a.height);
+    $("precutList").innerHTML = sorted.map((g) => {
+      g.items.sort((a, b) => b.p.length - a.p.length);
+      const rows = g.items.map(({ p, i }) =>
+        `<div class="item"><span>${p.length} mm</span><button class="danger" data-rmp="${i}" type="button">Remove</button></div>`
+      ).join("");
+      return `<details class="stockgroup"><summary>${g.width} × ${g.height} mm <span class="hint" style="margin:0">· ${g.items.length} length${g.items.length === 1 ? "" : "s"}</span></summary><div style="padding:4px 0 8px 12px">${rows}</div></details>`;
+    }).join("");
+  }
+
+  $("stockList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rm]");
+    if (b) { stock.splice(Number(b.dataset.rm), 1); saveStockPrecut(); renderStock(); }
+  });
+  $("precutList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rmp]");
+    if (b) { precut.splice(Number(b.dataset.rmp), 1); saveStockPrecut(); renderPrecut(); }
+  });
+
+  $("addStock").addEventListener("click", () => {
+    const length = num($("stLen").value);
+    if (length <= 0) { $("optStatus").textContent = "Enter a stock length."; return; }
+    stock.push({
+      length,
+      width: num($("stW").value, 140),
+      height: num($("stH").value, 38),
+      quality: $("stGrade").value.trim() || "C16CLS",
+      quantity: null
+    });
+    saveStockPrecut(); renderStock();
+  });
+
+  $("stockFile").addEventListener("change", function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result).split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) { $("optStatus").textContent = "That stock file has no rows."; return; }
+      const head = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+      const col = (...names) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; } return -1; };
+      const iL = col("length"), iW = col("width"), iH = col("height"), iQ = col("quality", "grade"), iN = col("quantity");
+      let n = 0;
+      lines.slice(1).forEach((l) => {
+        const c = parseCsvLine(l);
+        const length = num(c[iL]);
+        if (length > 0) {
+          stock.push({
+            length,
+            width: num(c[iW], 140),
+            height: num(c[iH], 38),
+            quality: (iQ >= 0 && c[iQ]) || "C16CLS",
+            quantity: null
+          });
+          n++;
+        }
+      });
+      saveStockPrecut(); renderStock();
+      $("optStatus").textContent = `Imported ${n} stock rows.`;
+    };
+    reader.readAsText(file);
+  });
+
+  $("addPrecut").addEventListener("click", () => {
+    const length = num($("pcLen").value);
+    if (length <= 0) { $("optStatus").textContent = "Enter a pre-cut length."; return; }
+    precut.push({ length, width: num($("pcW").value, 140), height: num($("pcH").value, 38) });
+    saveStockPrecut(); renderPrecut();
+  });
+
+  $("resetPrecut").addEventListener("click", () => {
+    precut = PRECUT_DEFAULTS.slice();
+    saveStockPrecut(); renderPrecut();
+    $("optStatus").textContent = "Pre-cut sizes reset to the standard list.";
+  });
+
+  // Lintels (PL) take the frame reference of a matching EX/FC/IL/IN lintel, by length and grade.
+  function reassignLintels(rows) {
+    const map = new Map();
+    rows.forEach((r) => {
+      if (r.Role !== "Lintel") return;
+      const ref = r["Frame Ref"] || "";
+      const t = frameOf(ref);
+      if (t === "PL" || t === "PY") return;
+      const key = `${r.Length}|${r.Grade || ""}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(ref);
+    });
+    const used = new Map();
+    rows.forEach((r) => {
+      if (r.Role !== "Lintel" || !(r["Frame Ref"] || "").startsWith("PL")) return;
+      let key = `${r.Length}|${r.Grade || ""}`;
+      let list = map.get(key);
+      if (!list && r.Grade) { key = `${r.Length}|`; list = map.get(key); }
+      if (!list || !list.length) return;
+      const i = used.get(key) || 0;
+      used.set(key, i + 1);
+      r["Frame Ref"] = list[i % list.length];
+    });
+    return rows;
+  }
+
+  // Full frame reference, e.g. "EX-12" -> "EX12". Anything that cannot be read as a reference is kept as typed.
+  function frameKey(ref) {
+    const codes = panelCodes(ref);
+    return codes.length ? codes[0] : String(ref || "").trim();
+  }
+
+  // Manual panels: a three-digit number starting with 8 (EX801, FC804 ... FC899).
+  function isManualKey(key) {
+    const m = /^[A-Z]+(\d+)$/.exec(key);
+    return !!m && m[1].length === 3 && m[1][0] === "8";
+  }
+
+  function frameSort(a, b) {
+    const pa = frameOf(a), pb = frameOf(b);
+    if (pa !== pb) return pa < pb ? -1 : 1;
+    const na = parseInt(a.replace(/\D/g, ""), 10) || 0, nb = parseInt(b.replace(/\D/g, ""), 10) || 0;
+    if (na !== nb) return na - nb;
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+
+  function renderOptFilters() {
+    const frames = [...new Set(materialRows.map((r) => frameKey(r["Frame Ref"])).filter((k) => k && k.toLowerCase() !== "frame ref"))].sort(frameSort);
+    const mats = [...new Set(materialRows.map((r) => r.Description || "").filter((d) => /CLS|C16|C24|GLULAM/.test(d)))].sort();
+    $("frameChecks").innerHTML = frames.length
+      ? frames.map((f) => {
+          const manual = isManualKey(f);
+          return `<label><input type="checkbox" value="${esc(f)}" data-prefix="${esc(frameOf(f))}"${manual ? "" : " checked"}> ${esc(f)}${manual ? ' <span class="hint" style="margin:0">(manual)</span>' : ""}</label>`;
+        }).join("")
+      : '<span class="hint">Load a material list first.</span>';
+    renderPrefixes();
+    $("matChecks").innerHTML = mats.map((m) => `<label><input type="checkbox" value="${esc(m)}" checked> ${esc(m)}</label>`).join("");
+  }
+
+  function renderComponents() {
+    if (!components.length) { $("compList").innerHTML = ""; $("importInfo").textContent = ""; return; }
+    const total = components.reduce((s, c) => s + c.quantity, 0);
+    $("importInfo").textContent = `${components.length} lines, ${total} pieces`;
+    $("compList").innerHTML = `<div class="wrap"><table><thead><tr><th>Component</th><th>Length</th><th>Size</th><th>Grade</th><th>Qty</th></tr></thead><tbody>${
+      components.map((c) => `<tr><td>${esc(c.name)}</td><td>${c.length}</td><td>${c.width}×${c.height}</td><td>${esc(c.quality)}</td><td>${c.quantity}</td></tr>`).join("")
+    }</tbody></table></div>`;
+  }
+
+  $("importComps").addEventListener("click", () => {
+    if (!materialRows.length) { $("importInfo").textContent = "Load a material list first."; return; }
+    const frames = [...document.querySelectorAll("#frameChecks input:checked")].map((i) => i.value);
+    const mats = [...document.querySelectorAll("#matChecks input:checked")].map((i) => i.value);
+    if (!frames.length || !mats.length) { $("importInfo").textContent = "Select at least one frame and one material type."; return; }
+    const incRails = $("incRails").checked;
+    const rows = reassignLintels(parseMaterialRows(materialText).filter((r) => num(r.Length) > 0));
+    components = [];
+    rows.forEach((r) => {
+      const ref = r["Frame Ref"] || "";
+      if (!frames.includes(frameKey(ref))) return;
+      const desc = r.Description || "";
+      if (!mats.some((m) => desc.includes(m))) return;
+      if (!incRails && isRail(r.Role)) return;
+      components.push({
+        name: `${r.Role} (${ref})`,
+        role: r.Role,
+        frameRef: ref,
+        length: num(r.Length),
+        width: num(r.Width, 140),
+        height: num(r.Depth, 38),
+        quantity: Math.max(1, Math.round(num(r.Quantity, 1))),
+        quality: r.Grade || "C16CLS"
+      });
+    });
+    dlog("Components imported: " + components.length + " lines");
+    renderComponents();
+  });
+
+  $("clearComps").addEventListener("click", () => { components = []; renderComponents(); });
+
+  // Frame selection helpers
+  // Type checkboxes (EX, FC, IL, IN, PY ...) tick or untick every frame of that type.
+  function syncPrefixes() {
+    document.querySelectorAll("#frameChecks input[data-pfx]").forEach((pb) => {
+      const kids = [...document.querySelectorAll("#frameChecks input")]
+        .filter((cb) => cb.dataset.prefix === pb.dataset.pfx && !isManualKey(cb.value));
+      pb.checked = kids.length > 0 && kids.every((cb) => cb.checked);
+    });
+  }
+  // Types ticked when a material list loads. Other types start unticked.
+  const DEFAULT_ON_TYPES = new Set(["EX", "IL", "PL"]);
+
+  // Groups the frame boxes under a tick box for each type (EX, F, IL, IN, PL ...).
+  function renderPrefixes() {
+    const box = $("frameChecks");
+    const labels = [...box.querySelectorAll(":scope > label")];
+    $("prefixChecks").innerHTML = "";
+    if (!labels.length) return;
+    const groups = new Map();
+    labels.forEach((l) => {
+      const cb = l.querySelector("input");
+      const p = cb.dataset.prefix;
+      cb.checked = DEFAULT_ON_TYPES.has(p) && !isManualKey(cb.value);
+      if (!groups.has(p)) groups.set(p, []);
+      groups.get(p).push(l);
+    });
+    box.innerHTML = "";
+    groups.forEach((items, p) => {
+      const g = document.createElement("div");
+      g.className = "typegroup";
+      const head = document.createElement("div");
+      head.className = "typehead";
+      head.innerHTML = `<label><input type="checkbox" data-pfx="${esc(p)}"> <strong>${esc(p)}</strong></label>`;
+      const row = document.createElement("div");
+      row.className = "typeframes";
+      items.forEach((l) => row.appendChild(l));
+      g.appendChild(head);
+      g.appendChild(row);
+      box.appendChild(g);
+    });
+    syncPrefixes();
+  }
+  $("prefixChecks").addEventListener("change", (e) => {
+    const pb = e.target.closest("input[data-pfx]");
+    if (!pb) return;
+    const inc = $("incManual").checked;
+    document.querySelectorAll("#frameChecks input").forEach((cb) => {
+      if (cb.dataset.prefix === pb.dataset.pfx && (!isManualKey(cb.value) || inc)) cb.checked = pb.checked;
+    });
+    syncPrefixes();
+  });
+  // Ticking a type box selects or clears the frames under it (manuals respect the include tick box).
+  $("frameChecks").addEventListener("change", (e) => {
+    const hb = e.target.closest("input[data-pfx]");
+    if (hb) {
+      const inc = $("incManual").checked;
+      document.querySelectorAll("#frameChecks input[data-prefix]").forEach((cb) => {
+        if (cb.dataset.prefix === hb.dataset.pfx && (!isManualKey(cb.value) || inc)) cb.checked = hb.checked;
+      });
+    }
+    syncPrefixes();
+  });
+
+  $("incManual").addEventListener("change", function () {
+    document.querySelectorAll("#frameChecks input").forEach((cb) => { if (isManualKey(cb.value)) cb.checked = this.checked; });
+    syncPrefixes();
+  });
+  $("frameAll").addEventListener("click", () => {
+    const inc = $("incManual").checked;
+    document.querySelectorAll("#frameChecks input").forEach((cb) => { cb.checked = !isManualKey(cb.value) || inc; });
+    syncPrefixes();
+  });
+  $("frameNone").addEventListener("click", () => {
+    document.querySelectorAll("#frameChecks input").forEach((cb) => { cb.checked = false; });
+    syncPrefixes();
+  });
+
+  function isPrecut(c) {
+    return precut.some((p) => c.length === p.length &&
+      ((c.width === p.width && c.height === p.height) || (c.width === p.height && c.height === p.width)));
+  }
+
+  // Grade-aware first-fit allocation. A piece only goes on stock of the same grade and section.
+  // Pieces are laid out in order with one kerf between neighbours, so cut positions and lengths agree.
+  function optimise() {
+    const status = $("optStatus");
+    if (!stock.length || !components.length) { status.textContent = "Add stock and import components first."; return; }
+    const kerf = num($("kerf").value, 0);
+    const ignoreGrade = $("ignoreGrade").checked;
+    const T = num($("restT").value, 1000);
+
+    const pieces = [];
+    let excludedCount = 0;
+    components.forEach((c) => {
+      for (let i = 0; i < c.quantity; i++) {
+        if (isPrecut(c)) excludedCount++; else pieces.push(c);
+      }
+    });
+    pieces.sort((a, b) => b.length - a.length);
+
+    // Unlimited lines (quantity null) never run out. Limited lines count down.
+    const remaining = stock.map((s) => (s.quantity == null ? Infinity : s.quantity));
+    const bins = [];
+    const dimMatch = (p, s) => (p.width === s.width && p.height === s.height) ||
+                               (p.width === s.height && p.height === s.width);
+
+    // Why a piece could not be placed: no cross-section, no grade, too long, or stock used up.
+    const diagnose = (p) => {
+      const sameSection = stock.filter((s) => dimMatch(p, s));
+      if (!sameSection.length) return `no stock in ${p.width} × ${p.height} mm (cross-section)`;
+      const sameGrade = ignoreGrade ? sameSection : sameSection.filter((s) => qn(s.quality) === qn(p.quality));
+      if (!sameGrade.length) return `no ${p.quality} stock in ${p.width} × ${p.height} mm (grade)`;
+      if (!sameGrade.some((s) => s.length >= p.length)) {
+        return `longer than any ${p.width} × ${p.height} mm stock (longest ${Math.max(...sameGrade.map((s) => s.length))} mm)`;
+      }
+      return "stock used up";
+    };
+
+    const unplaced = [];
+    for (const p of pieces) {
+      let placed = false;
+      for (const b of bins) {
+        if (!ignoreGrade && qn(b.stock.quality) !== qn(p.quality)) continue;
+        const dimOk = (p.width === b.stock.width && p.height === b.stock.height) ||
+                      (p.width === b.stock.height && p.height === b.stock.width);
+        if (!dimOk) continue;
+        const start = b.cuts.length ? b.end + kerf : 0;
+        if (start + p.length <= b.stock.length) {
+          b.cuts.push({ name: p.name, frameRef: p.frameRef, quality: p.quality, length: p.length, width: p.width, height: p.height, start });
+          b.end = start + p.length;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        // Open a new length: the shortest matching stock that is long enough and still available.
+        let best = -1;
+        stock.forEach((s, idx) => {
+          if ((!ignoreGrade && qn(s.quality) !== qn(p.quality)) || !dimMatch(p, s) || s.length < p.length || remaining[idx] <= 0) return;
+          if (best < 0 || s.length < stock[best].length) best = idx;
+        });
+        if (best >= 0) {
+          remaining[best] -= 1;
+          const s = stock[best];
+          const nb = { stock: s, cuts: [], end: 0 };
+          nb.cuts.push({ name: p.name, frameRef: p.frameRef, quality: p.quality, length: p.length, width: p.width, height: p.height, start: 0 });
+          nb.end = p.length;
+          bins.push(nb);
+          placed = true;
+        }
+      }
+      if (!placed) unplaced.push({ ...p, reason: diagnose(p) });
+    }
+
+    const used = bins.filter((b) => b.cuts.length);
+    const T2 = T;
+    used.forEach((b) => {
+      b.waste = b.stock.length - b.end;
+      b.rest = b.waste > T2 ? b.waste : 0;
+      b.trueWaste = b.waste - b.rest;
+    });
+
+    lastPlan = { bins: used, unplaced, excludedCount, kerf, T };
+    dlog(`Optimise: ${used.length} stock pieces, ${used.reduce((t, b) => t + b.cuts.length, 0)} cuts, ${unplaced.length} not placed, ignoreGrade=${ignoreGrade}`);
+    renderResults(lastPlan);
+    $("resultsPanel").hidden = false;
+    status.textContent = unplaced.length
+      ? `${unplaced.length} piece(s) could not be placed. See Results.`
+      : "Cutting plan ready.";
+  }
+
+  function pickRows(plan) {
+    const groups = new Map();
+    plan.bins.forEach((b) => {
+      const key = `${b.stock.length}|${b.stock.width}|${b.stock.height}|${qn(b.stock.quality)}`;
+      if (!groups.has(key)) groups.set(key, { length: b.stock.length, width: b.stock.width, height: b.stock.height, quality: b.stock.quality, count: 0, leftover: 0 });
+      const g = groups.get(key);
+      g.count++;
+      g.leftover += b.waste;
+    });
+    return [...groups.values()].sort((a, b) => b.length - a.length);
+  }
+
+  function renderResults(plan) {
+    const { bins, unplaced, excludedCount } = plan;
+    const totalStock = bins.reduce((s, b) => s + b.stock.length, 0);
+    const used = bins.reduce((s, b) => s + b.end, 0);
+    const rest = bins.reduce((s, b) => s + b.rest, 0);
+    const trueWaste = bins.reduce((s, b) => s + b.trueWaste, 0);
+    const cutCount = bins.reduce((s, b) => s + b.cuts.length, 0);
+    const eff = totalStock ? ((used + rest) / totalStock * 100).toFixed(1) : "0.0";
+
+    let html = `<div class="stats">
+      <div class="stat"><div class="n">${bins.length}</div><div class="l">stock pieces used</div></div>
+      <div class="stat"><div class="n">${cutCount}</div><div class="l">components cut</div></div>
+      <div class="stat"><div class="n">${Math.round(used)} mm</div><div class="l">length used</div></div>
+      <div class="stat"><div class="n">${Math.round(rest)} mm</div><div class="l">rest (reusable)</div></div>
+      <div class="stat"><div class="n">${Math.round(trueWaste)} mm</div><div class="l">true waste</div></div>
+      <div class="stat"><div class="n">${eff}%</div><div class="l">efficiency</div></div>
+      <div class="stat ${unplaced.length ? "warn" : ""}"><div class="n">${unplaced.length}</div><div class="l">not placed</div></div>
+      <div class="stat"><div class="n">${excludedCount}</div><div class="l">pre-cut excluded</div></div>
+    </div>`;
+
+    if (unplaced.length) {
+      html += `<div class="notice">These pieces could not be placed. The reason is shown for each:<ul>${
+        unplaced.map((p) => `<li>${esc(p.name)} · ${p.length} mm · ${p.width}×${p.height} · ${esc(p.quality)} — ${esc(p.reason)}</li>`).join("")}</ul></div>`;
+    }
+
+    const rows = pickRows(plan);
+    html += `<h2 style="margin-top:14px">Pick list</h2><div class="wrap"><table>
+      <thead><tr><th>Length</th><th>Size</th><th>Grade</th><th>Qty</th><th>Leftover %</th></tr></thead><tbody>${
+      rows.map((g) => {
+        const tot = g.count * g.length;
+        const pct = tot ? (g.leftover / tot * 100).toFixed(1) : "0.0";
+        return `<tr><td>${g.length} mm</td><td>${g.width}×${g.height}</td><td>${esc(g.quality)}</td><td>${g.count}</td><td>${pct}%</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+
+    html += `<h2 style="margin-top:14px">Cutting plan</h2>`;
+    bins.forEach((b, n) => {
+      const L = b.stock.length;
+      const bars = b.cuts.map((c) =>
+        `<div class="seg" style="left:${(c.start / L * 100).toFixed(3)}%;width:${(c.length / L * 100).toFixed(3)}%" title="${esc(c.name)}">${esc(c.name.split(" (")[0])}</div>`).join("");
+      const leftover = b.waste > 0
+        ? `<div class="seg ${b.rest ? "rest" : "waste"}" style="left:${(b.end / L * 100).toFixed(3)}%;width:${(b.waste / L * 100).toFixed(3)}%">${b.rest ? "Rest" : "Waste"}</div>`
+        : "";
+      const eff1 = ((b.end + b.rest) / L * 100).toFixed(1);
+      html += `<div class="plan">
+        <strong>Stock ${n + 1}: ${L} mm (${b.stock.width}×${b.stock.height}) ${esc(b.stock.quality)}</strong>
+        <span class="hint"> · ${eff1}% usable · ${Math.round(b.waste)} mm left</span>
+        <div class="vis">${bars}${leftover}</div>
+        ${b.cuts.map((c) => `<div class="item"><span>${esc(c.name)}</span><span>${c.length} mm @ ${Math.round(c.start)} mm</span></div>`).join("")}
+      </div>`;
+    });
+
+    $("results").innerHTML = html;
+  }
+
+  $("optimise").addEventListener("click", optimise);
+
+  function requirePlan() {
+    if (!lastPlan) { $("optStatus").textContent = "Run the optimiser first."; return false; }
+    return true;
+  }
+
+  $("dlCutList").addEventListener("click", () => {
+    if (!requirePlan()) return;
+    const job = $("jobName").value || "CutJob";
+    const f = cutListFile(job);
+    download(f.name, f.blob, f.blob.type);
+    $("optStatus").textContent = "Cut list downloaded.";
+  });
+
+  $("dlPickList").addEventListener("click", () => {
+    if (!requirePlan()) return;
+    const job = $("jobName").value || "CutJob";
+    const f = pickListFile(job);
+    download(f.name, f.blob, f.blob.type);
+    $("optStatus").textContent = "Pick list downloaded.";
+  });
+
+  $("dlCutFiles").addEventListener("click", () => {
+    if (!requirePlan()) return;
+    const job = $("jobName").value || "CutJob";
+    const files = [];
+    let counter = 1;
+    lastPlan.bins.forEach((b) => {
+      b.cuts.forEach((c) => {
+        files.push({ filename: `${job}.${String(counter).padStart(3, "0")}`, content: generateComponentFile(c.name, 1, c.quality, c.length, c.width, c.height) });
+        counter++;
+      });
+    });
+    download(`${job}_cutting_plan.json`, JSON.stringify({ jobName: job, exportDate: new Date().toISOString(), files }, null, 2), "application/json");
+    $("optStatus").textContent = `Exported ${files.length} cut file(s).`;
+  });
+
+  function generateComponentFile(header, qty, quality, length, width, height) {
+    return `fdtHeader := ${header}
+fdtNr_Of_Pieces_To_Cut := ${qty}
+fdtQuality := ${quality}
+fdtLength := ${length}
+fdtWidth := ${width}
+fdtHeight := ${height}
+fdtSaw_Angle[1] := 90.0
+fdtSaw_Angle[2] := -1
+fdtSaw_Angle[3] := -1
+fdtSaw_Angle[4] := 90.0
+fdtSaw_Angle[5] := -1
+fdtSaw_Angle[6] := -1
+fdtSaw_Centerline_Top_Left := -1
+fdtSaw_Centerline_Bottom_Left := -1
+fdtSaw_Centerline_Top_Right := -1
+fdtSaw_Centerline_Bottom_Right := -1
+fdtSaw_CutLength[1] := 0
+fdtSaw_CutLength[2] := 0
+fdtSaw_Inclination[1] := -1
+fdtSaw_Inclination[2] := -1
+fdtSaw_Inclination[3] := -1
+fdtSaw_Inclination[4] := -1
+fdtSaw_Hipend_Height_Right := -1
+fdtSaw_Hipend_Height_Left := -1
+
+`;
+  }
+
+  $("kerf").addEventListener("change", () => { if (lastPlan) optimise(); });
+  $("ignoreGrade").addEventListener("change", () => { if (lastPlan) optimise(); });
+  $("restT").addEventListener("change", () => { if (lastPlan) optimise(); });
+
+  $("clearStock").addEventListener("click", () => {
+    stock = [];
+    saveStockPrecut(); renderStock();
+    $("optStatus").textContent = "Stock cleared.";
+  });
+
+  $("resetStock").addEventListener("click", () => {
+    stock = DEFAULT_STOCK.map((s) => ({ ...s }));
+    saveStockPrecut(); renderStock();
+    $("optStatus").textContent = "Stock reset to the default list.";
+  });
+
+  // ---------- Save selected outputs to a folder ----------
+  let outDir = null;
+
+  $("pickFolder").addEventListener("click", async () => {
+    if (typeof window.showDirectoryPicker !== "function") {
+      $("optStatus").textContent = "Choosing a folder needs Chrome or Edge. Outputs will download instead.";
+      return;
+    }
+    try {
+      outDir = await window.showDirectoryPicker({ mode: "readwrite" });
+      $("folderName").textContent = "Saving to: " + outDir.name;
+    } catch (e) { /* picker cancelled */ }
+  });
+
+  async function writeOut(name, blob) {
+    if (outDir) {
+      const fh = await outDir.getFileHandle(name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(blob);
+      await w.close();
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const safeName = (s) => String(s || "CutJob").replace(/[\\\/:*?"<>|]/g, "-").trim() || "CutJob";
+
+  function spliceItem() {
+    if (!lastAoa.length) return null;
+    if (typeof XLSX === "undefined") throw new Error("the Excel library did not load");
+    const ws = XLSX.utils.aoa_to_sheet(lastAoa);
+    const longest = [];
+    lastAoa.filter((row) => row.length > 1).forEach((row) => {
+      row.forEach((v, j) => { longest[j] = Math.max(longest[j] || 0, String(v).length); });
+    });
+    ws["!cols"] = longest.map((n) => ({ wch: Math.min(Math.max(n + 2, 8), 40) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Splice List");
+    const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return {
+      name: listTitle() + ".xlsx",
+      blob: new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    };
+  }
+
+  // ---------- Cut and pick list: format chosen in Settings ----------
+  const listFormat = () => ($("listFormat").value === "xlsx" ? "xlsx" : "pdf");
+
+  function workbookBlob(sheetName, aoa, widths) {
+    if (typeof XLSX === "undefined") throw new Error("the Excel library did not load");
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = widths.map((wch) => ({ wch }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  }
+
+  function cutListFile(job) {
+    if (listFormat() === "xlsx") {
+      const aoa = [[`Cut list: ${job}`], [`${new Date().toLocaleString()}  ·  Blade width ${lastPlan.kerf} mm`], []];
+      lastPlan.bins.forEach((b, n) => {
+        aoa.push([`Stock ${n + 1}: ${b.stock.length} mm (${b.stock.width}×${b.stock.height}) ${b.stock.quality}`]);
+        aoa.push([`Left over: ${Math.round(b.waste)} mm${b.rest ? " (rest)" : ""}`]);
+        aoa.push(["Component", "Length", "Position", "Cut", "Grade"]);
+        b.cuts.forEach((c, i) => aoa.push([c.name, c.length, Math.round(c.start), i + 1, c.quality]));
+        aoa.push([]);
+      });
+      return { name: `${job}_cut_list.xlsx`, blob: workbookBlob("Cut list", aoa, [28, 10, 12, 8, 14]) };
+    }
+    return { name: `${job}_cut_list.pdf`, blob: cutListPdf(job) };
+  }
+
+  function pickListFile(job) {
+    if (listFormat() === "xlsx") {
+      const rows = pickRows(lastPlan);
+      const total = rows.reduce((s, g) => s + g.count * g.length, 0);
+      const aoa = [[`Pick list: ${job}`], [new Date().toLocaleString()], [],
+        ["Done", "Length (mm)", "Size (W×H)", "Grade", "Qty", "Total (mm)"]];
+      rows.forEach((g) => aoa.push(["", g.length, `${g.width}×${g.height}`, g.quality, g.count, g.count * g.length]));
+      aoa.push(["Total", "", "", "", "", total]);
+      return { name: `${job}_pick_list.xlsx`, blob: workbookBlob("Pick list", aoa, [8, 14, 14, 14, 8, 14]) };
+    }
+    return { name: `${job}_pick_list.pdf`, blob: pickListPdf(job) };
+  }
+
+  // ---------- PDF output (built in, no external library) ----------
+  function pdfText(s) {
+    let out = "";
+    for (const ch of String(s ?? "")) {
+      if (ch === "☐") { out += "[ ]"; continue; }
+      if (ch === "✓") { out += "Done"; continue; }
+      const code = ch.codePointAt(0);
+      if (code > 255) { out += "?"; continue; }
+      out += (ch === "\\" || ch === "(" || ch === ")") ? "\\" + ch : ch;
+    }
+    return out;
+  }
+
+  function fitText(s, width, size) {
+    const text = String(s ?? "");
+    const maxChars = Math.max(3, Math.floor((width - 8) / (size * 0.5)));
+    return text.length > maxChars ? text.slice(0, maxChars - 2) + ".." : text;
+  }
+
+  function buildPdf(draw) {
+    const W = 595, H = 842, M = 40, CW = W - 2 * M;
+    const pages = [];
+    let ops = [];
+    let y = 0;
+    const newPage = () => { if (ops.length) pages.push(ops.join("\n")); ops = []; y = H - M; };
+    const ensure = (h) => { if (y - h < M) newPage(); };
+    const put = (str, x, base, size, bold) =>
+      ops.push(`BT /${bold ? "F2" : "F1"} ${size} Tf ${x.toFixed(1)} ${base.toFixed(1)} Td (${pdfText(str)}) Tj ET`);
+    const box = (x, top, w, h, fill) => {
+      if (fill) ops.push(`0.92 g ${x.toFixed(1)} ${(top - h).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f 0 g`);
+      ops.push(`${x.toFixed(1)} ${(top - h).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re S`);
+    };
+    const table = (headers, rows, fracs) => {
+      const widths = fracs.map((f) => f * CW);
+      const rowH = 16, size = 9;
+      const drawRow = (cells, bold, fill) => {
+        let x = M;
+        cells.forEach((c, i) => {
+          box(x, y, widths[i], rowH, fill);
+          put(fitText(c, widths[i], size), x + 4, y - 11, size, bold);
+          x += widths[i];
+        });
+        y -= rowH;
+      };
+      ensure(rowH * 2);
+      drawRow(headers, true, true);
+      rows.forEach((r) => {
+        if (y - rowH < M) { newPage(); drawRow(headers, true, true); }
+        drawRow(r.cells, r.bold, false);
+      });
+      y -= 10;
+    };
+    const title = (t) => { ensure(30); put(t, M, y - 16, 16, true); y -= 26; };
+    const para = (t) => { ensure(14); put(t, M, y - 9, 9, false); y -= 13; };
+    const heading = (t) => { ensure(60); y -= 6; put(t, M, y - 11, 11, true); y -= 18; };
+    const gap = () => { y -= 8; };
+
+    newPage();
+    draw({ title, para, heading, table, gap });
+    pages.push(ops.join("\n"));
+
+    const n = pages.length;
+    const objs = [];
+    objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+    objs[2] = `<< /Type /Pages /Kids [${pages.map((_, i) => `${5 + 2 * i} 0 R`).join(" ")}] /Count ${n} >>`;
+    objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+    objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
+    pages.forEach((content, i) => {
+      objs[5 + 2 * i] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6 + 2 * i} 0 R >>`;
+      objs[6 + 2 * i] = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+    });
+
+    let out = "%PDF-1.4\n";
+    const offsets = [];
+    for (let i = 1; i < objs.length; i++) {
+      offsets[i] = out.length;
+      out += `${i} 0 obj\n${objs[i]}\nendobj\n`;
+    }
+    const xref = out.length;
+    out += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+    for (let i = 1; i < objs.length; i++) out += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+    out += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+
+    const bytes = new Uint8Array(out.length);
+    for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 255;
+    return new Blob([bytes], { type: "application/pdf" });
+  }
+
+  function cutListPdf(job) {
+    return buildPdf(({ title, para, heading, table, gap }) => {
+      title(`Cut list: ${job}`);
+      para(`${new Date().toLocaleString()}  ·  Blade width ${lastPlan.kerf} mm`);
+      lastPlan.bins.forEach((b, n) => {
+        gap();
+        heading(`Stock ${n + 1}: ${b.stock.length} mm (${b.stock.width}×${b.stock.height}) ${b.stock.quality}`);
+        para(`Left over: ${Math.round(b.waste)} mm${b.rest ? " (rest)" : ""}`);
+        table(["Component", "Length", "Position", "Cut", "Grade"],
+          b.cuts.map((c, i) => ({ cells: [c.name, c.length, Math.round(c.start), i + 1, c.quality], bold: false })),
+          [0.36, 0.14, 0.16, 0.1, 0.24]);
+      });
+    });
+  }
+
+  function pickListPdf(job) {
+    const rows = pickRows(lastPlan);
+    const total = rows.reduce((s, g) => s + g.count * g.length, 0);
+    return buildPdf(({ title, para, table }) => {
+      title(`Pick list: ${job}`);
+      para(new Date().toLocaleString());
+      table(["Done", "Length (mm)", "Size (W×H)", "Grade", "Qty", "Total (mm)"],
+        [
+          ...rows.map((g) => ({ cells: ["☐", g.length, `${g.width}×${g.height}`, g.quality, g.count, (g.count * g.length).toLocaleString()], bold: false })),
+          { cells: ["Total", "", "", "", "", total.toLocaleString()], bold: true }
+        ],
+        [0.1, 0.16, 0.2, 0.2, 0.12, 0.22]);
+    });
+  }
+
+  function cutFileItems(job) {
+    const items = [];
+    let counter = 1;
+    lastPlan.bins.forEach((b) => b.cuts.forEach((c) => {
+      items.push({
+        name: `${job}.${String(counter).padStart(3, "0")}`,
+        blob: new Blob([generateComponentFile(c.name, 1, c.quality, c.length, c.width, c.height)], { type: "text/plain" })
+      });
+      counter++;
+    }));
+    return items;
+  }
+
+  $("saveSelected").addEventListener("click", async () => {
+    const status = $("optStatus");
+    const job = safeName($("jobName").value);
+    const items = [];
+    const notSaved = [];
+
+    if ($("outSplice").checked) {
+      try {
+        const s = spliceItem();
+        if (s) items.push(s); else notSaved.push("splice list (sort it in the splice sorter first)");
+      } catch (e) { notSaved.push("splice list (" + e.message + ")"); }
+    }
+
+    const cuttingChosen = $("outCutList").checked || $("outPick").checked || $("outFiles").checked;
+    if (cuttingChosen && !lastPlan) {
+      notSaved.push("cutting outputs (run the optimiser first)");
+    } else if (lastPlan) {
+      if ($("outCutList").checked) items.push(cutListFile(job));
+      if ($("outPick").checked) items.push(pickListFile(job));
+      if ($("outFiles").checked) items.push(...cutFileItems(job));
+    }
+
+    if (!items.length) {
+      status.textContent = "Nothing to save." + (notSaved.length ? " Not saved: " + notSaved.join(", ") + "." : "");
+      return;
+    }
+    try {
+      for (const it of items) await writeOut(it.name, it.blob);
+      status.textContent = `Saved ${items.length} file(s) ${outDir ? "to " + outDir.name : "to Downloads"}.` +
+        (notSaved.length ? " Not saved: " + notSaved.join(", ") + "." : "");
+    } catch (e) {
+      status.textContent = "Save failed: " + e.message;
+    }
+  });
+
+  // ---------- Reset for next job ----------
+  $("resetAll").addEventListener("click", () => {
+    // Sorter
+    $("order").value = "";
+    $("splice").value = "";
+    materialText = "";
+    materialRows = [];
+    $("materialFile").value = "";
+    $("materialInfo").textContent = "No material list loaded.";
+    try {
+      localStorage.removeItem("saw-order");
+      localStorage.removeItem("saw-splice");
+    } catch (e) { /* storage blocked */ }
+
+    // Optimiser
+    lastPlan = null;
+    components = [];
+    precut = PRECUT_DEFAULTS.slice();
+    saveStockPrecut();
+    $("stLen").value = "3000";
+    $("stW").value = "140";
+    $("stH").value = "38";
+    $("stGrade").value = "C16CLS";
+    $("stockFile").value = "";
+    $("pcLen").value = "";
+    $("pcW").value = "140";
+    $("pcH").value = "38";
+    $("jobName").value = "CutJob";
+    $("incRails").checked = false;
+    $("frameChecks").innerHTML = '<span class="hint">Load a material list first.</span>';
+    $("matChecks").innerHTML = "";
+    $("prefixChecks").innerHTML = "";
+    $("compList").innerHTML = "";
+    $("importInfo").textContent = "";
+    $("results").innerHTML = "";
+    $("resultsPanel").hidden = true;
+    $("optStatus").textContent = "";
+
+    renderStock();
+    renderPrecut();
+    runSorter();
+    renderSorterWidths();
+    $("sorterStatus").textContent = "Cleared. Ready for the next job.";
+  });
+
+  // ---------- Debug file ----------
+  // Keeps a short log of what happened, and any errors, for the debug file.
+  let debugEvents = [];
+  let lastSplice = null;
+  const dlog = (msg) => {
+    debugEvents.push(new Date().toISOString() + "  " + msg);
+    if (debugEvents.length > 300) debugEvents.shift();
+  };
+  window.addEventListener("error", (e) => dlog("ERROR: " + (e.message || "unknown") + " (line " + (e.lineno || "?") + ")"));
+  window.addEventListener("unhandledrejection", (e) => dlog("ERROR (async): " + (e.reason && e.reason.message ? e.reason.message : String(e.reason))));
+
+  function debugReport() {
+    const plan = lastPlan ? {
+      stockPieces: lastPlan.bins.length,
+      cuts: lastPlan.bins.reduce((t, b) => t + b.cuts.length, 0),
+      bladeWidth: lastPlan.kerf,
+      restThreshold: lastPlan.T,
+      excludedPrecut: lastPlan.excludedCount,
+      notPlaced: lastPlan.unplaced.map((p) => ({ name: p.name, length: p.length, width: p.width, height: p.height, grade: p.quality, reason: p.reason || "" })),
+      bins: lastPlan.bins.map((b) => ({
+        stock: b.stock,
+        cuts: b.cuts.map((c) => ({ name: c.name, length: c.length, width: c.width, height: c.height, grade: c.quality, start: Math.round(c.start) })),
+        leftover: Math.round(b.waste)
+      }))
+    } : null;
+    const columns = materialRows.length ? Object.keys(materialRows[0]) : [];
+    return JSON.stringify({
+      generated: new Date().toISOString(),
+      note: "Contains everything from this job: the full material list, splice list, build order, stock, components and cut plan. Check before sharing outside the team.",
+      settings: {
+        job: $("jobName").value,
+        bladeWidth: $("kerf").value,
+        restThreshold: $("restT").value,
+        ignoreGrade: $("ignoreGrade").checked,
+        includeManualPanels: $("incManual").checked,
+        browser: navigator.userAgent
+      },
+      stock,
+      precut,
+      materialList: { loaded: !!materialText, rows: materialRows.length, columns, rawText: materialText, parsedRows: materialRows },
+      buildOrderText: $("order").value,
+      spliceListText: $("splice").value,
+      sorterOutputCsv: lastCsv,
+      frames: [...document.querySelectorAll("#frameChecks input")].map((cb) => ({ frame: cb.value, selected: cb.checked })),
+      components: components.map((c) => ({ name: c.name, length: c.length, width: c.width, height: c.height, grade: c.quality, quantity: c.quantity })),
+      splice: lastSplice,
+      optimiser: plan,
+      messages: { sorter: $("sorterStatus").textContent, optimiser: $("optStatus").textContent },
+      events: debugEvents
+    }, null, 2);
+  }
+
+  $("debugReport").addEventListener("click", () => {
+    dlog("Debug file requested");
+    download(`${safeName($("jobName").value)}_debug.json`, debugReport(), "application/json");
+    $("settingsStatus").textContent = "Debug file downloaded. Send it to Claude with a description of the problem.";
+  });
+
+  // ---------- Saved settings ----------
+  // Blade width, rest threshold, ignore grade and include manual panels are kept in this browser.
+  // Job name is not saved, because it follows each splice list.
+  const VALUE_SETTINGS = { kerf: "saw-kerf", restT: "saw-restT", listFormat: "saw-listFormat" };
+  const CHECK_SETTINGS = { ignoreGrade: "saw-ignoreGrade", incManual: "saw-incManual" };
+
+  function loadSettings() {
+    Object.entries(VALUE_SETTINGS).forEach(([id, key]) => {
+      const v = store.get(key);
+      if (v !== null) $(id).value = v;
+    });
+    Object.entries(CHECK_SETTINGS).forEach(([id, key]) => {
+      const v = store.get(key);
+      if (v !== null) $(id).checked = v === "1";
+    });
+  }
+
+  function saveSetting(id) {
+    if (VALUE_SETTINGS[id]) store.set(VALUE_SETTINGS[id], $(id).value);
+    if (CHECK_SETTINGS[id]) store.set(CHECK_SETTINGS[id], $(id).checked ? "1" : "0");
+  }
+
+  Object.keys({ ...VALUE_SETTINGS, ...CHECK_SETTINGS }).forEach((id) => {
+    $(id).addEventListener("change", () => saveSetting(id));
+  });
+
+  loadSettings();
+
+  // ---------- Start ----------
+  renderStock();
+  renderPrecut();
+  runSorter();
+  renderSorterWidths();
+})();
+</script>
+</body>
+</html>
